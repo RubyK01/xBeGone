@@ -3,6 +3,8 @@ function replaceURL(url) {
   }
   
   let lastClipboardText = "";
+  let isMonitoring = false;
+  let clipboardInterval = null;
   
   function checkClipboard() {
     navigator.clipboard.readText().then((text) => {
@@ -22,9 +24,37 @@ function replaceURL(url) {
     });
   }
   
-  function loopClipboard() {
-    setInterval(checkClipboard, 1000); // Check the clipboard every second
+  function startClipboardMonitoring() {
+    if (!clipboardInterval) {
+      clipboardInterval = setInterval(checkClipboard, 1000); // Check the clipboard every second
+    }
   }
   
-  loopClipboard();
+  function stopClipboardMonitoring() {
+    if (clipboardInterval) {
+      clearInterval(clipboardInterval);
+      clipboardInterval = null;
+    }
+  }
+  
+  browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === "setMonitoring") {
+      isMonitoring = message.enabled;
+      if (isMonitoring) {
+        startClipboardMonitoring();
+      } else {
+        stopClipboardMonitoring();
+      }
+      browser.storage.local.set({ monitoringEnabled: isMonitoring });
+      sendResponse({ success: true });
+    }
+  });
+  
+  // Restore the monitoring state when the extension is loaded
+  browser.storage.local.get("monitoringEnabled").then((result) => {
+    isMonitoring = result.monitoringEnabled || false;
+    if (isMonitoring) {
+      startClipboardMonitoring();
+    }
+  });
   
